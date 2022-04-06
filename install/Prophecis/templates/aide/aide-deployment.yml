@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aide-deployment
+  namespace: {{.Values.namespace}}
+  labels: 
+    app: aide-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aide
+  minReadySeconds: 5
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aide
+    spec:
+      serviceAccountName: aide-web-app
+      containers:
+      - name: aide
+        image: {{.Values.image.registry}}:{{.Values.aide.image.tag}}
+        imagePullPolicy: {{.Values.aide.image.pullPolicy}}
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: timezone
+          mountPath: /etc/timezone
+        - mountPath: /etc/mlss/
+          name: aide-config
+        env:
+        - name: DLAAS_ENV
+          value: {{.Values.envir}}
+        - name: START_PORT
+          value: "{{.Values.aide.startPort}}"
+        - name: END_PORT
+          value: "{{.Values.aide.endPort}}"
+        - name: FLUENT_ELASTICSEARCH_HOST
+          value: "elasticsearch.prophecis.svc.cluster.local"
+        - name: FLUENT_ELASTICSEARCH_PORT
+          value: "9200"
+        - name: MONGO_ADDRESS
+          value: {{.Values.mongo.address}}
+        - name: MONGO_USER_NAME
+          value: {{.Values.mongo.username}}
+        - name: MONGO_PASSWORD
+          value: {{.Values.mongo.password}}
+        - name: MONGO_DATABASE
+          value: {{.Values.mongo.database}}
+        - name: MONGO_Authentication_Database
+          value: {{.Values.mongo.authenticationDatabase}}
+      imagePullSecrets:
+      - name: hubsecret
+      volumes:
+      - name: timezone
+        hostPath:
+          path: /etc/timezone
+          type: File
+      - name: aide-config
+        configMap:
+          name: aide-config
+      nodeSelector:
+        {{range $key,$val := .Values.platformNodeSelectors}}
+          {{$key}}: {{$val}}
+        {{end}}
